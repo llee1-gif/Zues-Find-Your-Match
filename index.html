@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Find Your Match – Zeus' Rescues</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Just+Another+Hand&family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --W: 1434px; --H: 660px; --ink:#2b2118; --cream:#fff8ec; --orange:#f39a1f; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin:0; height:100%; background:#16261c; overflow:hidden; touch-action:manipulation; overscroll-behavior:none; font-family:'Fredoka', system-ui, sans-serif; }
+  #wrap { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  #stage { position:relative; width:var(--W); height:var(--H); flex:none; overflow:hidden; transform-origin:center center; border-radius:6px; background:#7fb3a5; user-select:none; }
+  .layer { position:absolute; inset:0; }
+  .full { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none; }
+
+  /* ---------- prompt + bubbles ---------- */
+  .prompt { position:absolute; left:50%; top:22px; transform:translateX(-50%); width:960px; text-align:center;
+    font-family:'Just Another Hand', cursive; font-size:64px; line-height:.9; color:#fff; letter-spacing:1px;
+    text-shadow:0 3px 0 rgba(0,0,0,.25), 0 0 18px rgba(0,0,0,.25); pointer-events:none; z-index:40;
+    transition:opacity .5s, transform .5s; }
+  .prompt.hide { opacity:0; transform:translate(-50%,-14px); }
+  .prompt small { display:block; font-family:'Fredoka'; font-weight:500; font-size:22px; letter-spacing:0; margin-top:6px; opacity:.9; }
+  .bubble { position:absolute; background:var(--cream); color:var(--ink); border:3px solid var(--ink); border-radius:22px;
+    padding:8px 16px 7px; font-size:22px; font-weight:500; line-height:1.05; white-space:nowrap; z-index:50; pointer-events:none;
+    transform-origin:50% 100%; animation:pop .35s cubic-bezier(.3,1.6,.5,1) both; box-shadow:0 4px 0 rgba(0,0,0,.18); }
+  .bubble::after { content:""; position:absolute; left:50%; bottom:-14px; margin-left:-9px; border:9px solid transparent; border-top:12px solid var(--ink); border-bottom:0; }
+  .bubble.out { animation:popout .3s ease-in both; }
+  @keyframes pop { from { transform:translate(-50%,0) scale(.3); opacity:0 } to { transform:translate(-50%,0) scale(1); opacity:1 } }
+  @keyframes popout { to { transform:translate(-50%,-10px) scale(.6); opacity:0 } }
+
+  /* ---------- intro ---------- */
+  #intro { z-index:5; transition:transform 1.4s cubic-bezier(.6,0,.3,1), opacity .6s 1s; transform-origin:515px 340px; }
+  #intro.zoom { transform:scale(3.4); opacity:0; }
+  #inside { position:absolute; inset:0; clip-path:polygon(325px 110px, 713px 210px, 700px 462px, 316px 572px); cursor:pointer; }
+  #inside .room { position:absolute; left:-10px; top:96px; height:490px; }
+  .peek { position:absolute; transform:translateX(-50%); animation:peek 3.2s ease-in-out infinite; pointer-events:none; }
+  .peek img { display:block; height:100%; }
+  @keyframes peek { 0%,100%{ transform:translate(-50%,40%) } 30%,70%{ transform:translate(-50%,0) } }
+  #glass { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; opacity:.9; }
+  #intro.knock #inside .peek { animation:press .5s ease-out forwards; }
+  @keyframes press { to { transform:translate(-50%,-6%) scale(1.25) } }
+  .sign { position:absolute; left:58px; top:150px; width:180px; transform:rotate(-4deg); filter:drop-shadow(0 6px 6px rgba(0,0,0,.3)); animation:swing 4s ease-in-out infinite; transform-origin:50% 0; }
+  @keyframes swing { 0%,100%{ transform:rotate(-4deg) } 50%{ transform:rotate(-1deg) } }
+  .tapring { position:absolute; width:90px; height:90px; margin:-45px 0 0 -45px; border-radius:50%; border:4px solid #fff; pointer-events:none;
+    z-index:30; opacity:0; }
+  .tapring.on { animation:ring 1.6s ease-out infinite; }
+  @keyframes ring { from { transform:scale(.4); opacity:.95 } to { transform:scale(1.5); opacity:0 } }
+
+  /* ---------- yard ---------- */
+  #yard { opacity:0; transition:opacity .9s; z-index:2; }
+  #yard.on { opacity:1; }
+  #sky { position:absolute; top:-40px; left:-120px; width:calc(100% + 240px); height:calc(100% + 60px); object-fit:cover; animation:drift 40s ease-in-out infinite alternate; pointer-events:none; }
+  @keyframes drift { from { transform:translateX(0) } to { transform:translateX(90px) } }
+  .home { position:absolute; right:22px; top:18px; z-index:80; font-size:30px; padding:6px 18px 0; }
+  .logo { position:absolute; left:22px; top:16px; width:92px; cursor:pointer; z-index:45; filter:drop-shadow(0 3px 4px rgba(0,0,0,.3)); animation:bounceIn .8s .3s both; }
+  @keyframes bounceIn { from { transform:scale(.2) rotate(-20deg); opacity:0 } to { transform:none; opacity:1 } }
+
+  /* dogs */
+  .dog { pointer-events:auto; position:absolute; bottom:46px; transform-origin:50% 100%; cursor:pointer; z-index:20;
+    transform:translate(var(--x,0px), var(--y,0px)) scale(var(--k,1));
+    transition:transform 1.1s cubic-bezier(.45,.05,.3,1), opacity .6s, filter .6s; }
+  .dog .shadow { position:absolute; left:10%; right:10%; bottom:-10px; height:22px; border-radius:50%; background:rgba(0,40,10,.35); filter:blur(4px); }
+  .dog .bob { position:relative; transform-origin:50% 100%; animation:breathe 2.6s ease-in-out infinite; }
+  .dog img { display:block; height:100%; width:auto; pointer-events:none; }
+  .dog .flip { transition:transform .25s; }
+  .dog.left .flip { transform:scaleX(-1); }
+  @keyframes breathe { 0%,100% { transform:scale(1,1) } 50% { transform:scale(1.015,1.035) } }
+  .dog.hopping .bob { animation:hop .32s ease-in-out infinite; }
+  @keyframes hop { 0%,100% { transform:translateY(0) rotate(0) } 50% { transform:translateY(-22px) rotate(-3deg) } }
+  .dog.jump .bob { animation:jump .6s cubic-bezier(.3,.9,.4,1); }
+  @keyframes jump { 0%{transform:scale(1.06,.9)} 35%{transform:translateY(-70px) scale(.96,1.06)} 70%{transform:translateY(0) scale(1.05,.93)} 100%{transform:none} }
+  .dog.sad .bob { animation:sad 1s ease forwards; }
+  @keyframes sad { to { transform:scale(1.03,.94) rotate(4deg) } }
+  .dog.gone { opacity:0; pointer-events:none; }
+  .dog.dim { filter:saturate(.6) brightness(.9); }
+
+  /* choice items in the scene */
+  .item { pointer-events:auto; position:absolute; cursor:pointer; z-index:15; transform-origin:50% 100%;
+    transition:transform .6s cubic-bezier(.3,1.4,.5,1), opacity .5s, filter .4s; }
+  .item.enter { animation:rise .7s cubic-bezier(.3,1.4,.5,1) both; }
+  @keyframes rise { from { transform:translateY(60px) scale(.6); opacity:0 } to { transform:none; opacity:1 } }
+  .item:hover { filter:drop-shadow(0 0 14px rgba(255,255,220,.95)); }
+  .item img { display:block; width:100%; pointer-events:none; }
+  .item.chosen { transform:scale(1.12); filter:drop-shadow(0 0 18px rgba(255,240,170,1)); }
+  .item.fade { opacity:0; transform:translateY(40px) scale(.8); pointer-events:none; }
+  .item .check { position:absolute; right:-6px; top:-6px; width:52px; height:52px; border-radius:50%; background:var(--orange); border:4px solid #fff;
+    display:flex; align-items:center; justify-content:center; transform:scale(0); transition:transform .35s cubic-bezier(.3,1.7,.5,1); box-shadow:0 3px 0 rgba(0,0,0,.25); }
+  .item .check svg { width:26px; }
+  .item.on .check { transform:scale(1); }
+  .pill { display:inline-block; background:linear-gradient(180deg,#ebbd78 0%,#f89500 100%); color:#0065bd; border:3px solid #0065bd; border-radius:49px;
+    font-family:'Just Another Hand', cursive; font-size:40px; line-height:1; padding:8px 28px 2px; white-space:nowrap; cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,60,120,.35); transition:transform .15s; }
+  .pill:hover { transform:scale(1.05); }
+  .pill:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,60,120,.35); }
+  .item .label { position:absolute; left:50%; bottom:-38px; transform:translateX(-50%); font-size:26px; font-weight:500; color:#fff; white-space:nowrap; text-shadow:0 2px 4px rgba(0,0,0,.65); pointer-events:none; }
+
+  /* nap: feathered vignette that breathes */
+  .nap img { filter:drop-shadow(0 10px 6px rgba(0,40,10,.35)); animation:napbreath 3.4s ease-in-out infinite; transform-origin:50% 70%; }
+  @keyframes napbreath { 0%,100%{transform:scale(1)} 50%{transform:scale(1.02,1.035)} }
+  .zzz { position:absolute; font-family:'Just Another Hand'; color:#fff; font-size:46px; text-shadow:0 2px 3px rgba(0,0,0,.4); animation:zz 3s ease-out infinite; opacity:0; pointer-events:none; }
+  @keyframes zz { 0%{ transform:translate(0,0) scale(.6); opacity:0 } 20%{opacity:1} 100%{ transform:translate(40px,-90px) scale(1.2); opacity:0 } }
+  .ballpup img { animation:play 1.1s ease-in-out infinite; transform-origin:50% 90%; }
+  @keyframes play { 0%,100%{ transform:rotate(-4deg) translateY(0) } 25%{ transform:rotate(3deg) translateY(-26px) } 50%{ transform:rotate(5deg) translateY(0) } 75%{ transform:rotate(-2deg) translateY(-10px) } }
+  .kid img { animation:wiggle 2.4s ease-in-out infinite; transform-origin:50% 100%; }
+  @keyframes wiggle { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-1.5deg)} 75%{transform:rotate(1.5deg)} }
+  .pals img { animation:nuzzle 2s ease-in-out infinite; transform-origin:50% 100%; }
+  @keyframes nuzzle { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03,.97)} }
+
+  .crew { position:absolute; right:60px; bottom:34px; z-index:25; cursor:pointer; transform-origin:50% 100%; }
+  .crew .post { position:absolute; left:50%; bottom:0; width:16px; height:70px; margin-left:-8px; background:#7a4f2a; border:3px solid var(--ink); border-radius:3px; }
+  .crew .board { position:relative; margin-bottom:60px; background:#c8894a; border:4px solid var(--ink); border-radius:10px; padding:10px 22px 6px;
+    font-family:'Just Another Hand'; font-size:44px; color:#fff; text-shadow:0 2px 0 rgba(0,0,0,.35); transform:rotate(-3deg); box-shadow:0 5px 0 rgba(0,0,0,.25); }
+  .crew:hover .board { transform:rotate(0) scale(1.05); }
+  .crew .board { transition:transform .3s; }
+
+  /* particles */
+  .heart { position:absolute; width:34px; height:30px; pointer-events:none; z-index:60; animation:float 1.4s ease-out forwards; }
+  @keyframes float { from { transform:translate(0,0) scale(.3) rotate(0); opacity:1 } to { transform:translate(var(--dx), var(--dy)) scale(1) rotate(var(--r)); opacity:0 } }
+
+  /* reveal */
+  #reveal { position:absolute; inset:0; z-index:70; pointer-events:none; }
+  #reveal .glow { position:absolute; left:50%; top:62%; width:900px; height:900px; margin:-450px 0 0 -450px; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,246,200,.85) 0%, rgba(255,246,200,0) 60%); opacity:0; transform:scale(.3); transition:all 1.2s ease-out; }
+  #reveal.on .glow { opacity:1; transform:scale(1); }
+  .card { position:absolute; right:46px; top:120px; width:420px; background:var(--cream); border:4px solid var(--ink); border-radius:24px; padding:22px 26px 20px; color:var(--ink);
+    box-shadow:0 8px 0 rgba(0,0,0,.2); opacity:0; transform:translateX(60px) rotate(2deg); transition:all .7s cubic-bezier(.3,1.3,.5,1) .6s; pointer-events:none; }
+  #reveal.on .card { opacity:1; transform:rotate(1deg); pointer-events:auto; }
+  .card h2 { margin:0; font-family:'Just Another Hand'; font-weight:400; font-size:66px; line-height:.85; color:#d35400; }
+  .card .name { font-size:26px; font-weight:500; margin:8px 0 12px; }
+  .card ol { margin:0 0 18px; padding-left:22px; font-size:19px; line-height:1.25; }
+  .card ol li { margin-bottom:4px; }
+  .card .k { font-size:14px; font-weight:600; text-transform:uppercase; letter-spacing:1.5px; opacity:.6; margin-bottom:6px; }
+  .btn { display:inline-block; background:var(--orange); color:#fff; border:3px solid var(--ink); border-radius:40px; padding:6px 22px 4px; font-family:'Just Another Hand'; font-size:38px; cursor:pointer; box-shadow:0 4px 0 rgba(0,0,0,.25); }
+  .btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.25); }
+
+  #splash { z-index:100; cursor:pointer; transition:opacity .7s; }
+  #splash.hide { opacity:0; pointer-events:none; }
+  #splashCanvas { position:absolute; left:50%; top:46%; width:376px; height:528px; transform:translate(-50%,-50%); filter:drop-shadow(0 8px 12px rgba(0,0,0,.25)); }
+  #startHint { position:absolute; left:0; right:0; bottom:26px; text-align:center; font-family:'Just Another Hand', cursive; font-size:52px; color:#fff;
+    text-shadow:0 3px 0 rgba(0,0,0,.25), 0 0 14px rgba(0,0,0,.3); opacity:0; transition:opacity .6s; }
+  #splash.ready #startHint { opacity:1; animation:nudge 1.6s ease-in-out infinite; }
+  @keyframes nudge { 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.06) } }
+  #rotate { position:fixed; inset:0; z-index:250; display:none; flex-direction:column; align-items:center; justify-content:center; gap:22px; background:#16261c; color:#fff; font-size:22px; text-align:center; padding:30px; }
+  #rotate .phone { width:70px; height:120px; border:5px solid #fff; border-radius:14px; animation:turn 2s ease-in-out infinite; }
+  @keyframes turn { 0%,25%{ transform:rotate(0) } 60%,100%{ transform:rotate(-90deg) } }
+  @media (orientation:portrait) and (max-width:900px) { #rotate { display:flex; } }
+  #loading { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:28px; z-index:200; background:#16261c; transition:opacity .5s; }
+</style>
+</head>
+<body>
+<div id="loading">Fetching the dogs…</div>
+<div id="rotate"><div class="phone"></div><div>Turn your phone sideways to play</div></div>
+<div id="wrap"><div id="stage">
+
+  <!-- SPLASH: Diego's Zeus logo animation, centered in the landscape stage -->
+  <div id="splash" class="layer">
+    <img class="full" src="a/sky.webp" alt="" style="object-fit:cover">
+    <img class="full" src="a/grass.webp" alt="">
+    <canvas id="splashCanvas" width="376" height="528"></canvas>
+    <div id="startHint">Tap anywhere to start</div>
+  </div>
+
+  <!-- YARD -->
+  <div id="yard" class="layer">
+    <img id="sky" src="a/sky.webp" alt="">
+    <img class="full" src="a/grass.webp" alt="">
+    <img class="logo" src="a/logo.webp" alt="Zeus' Rescues">
+    <div class="home pill" id="home" role="button" tabindex="0">&#8634; Start over</div>
+    <div id="items" class="layer" style="z-index:15; pointer-events:none"></div>
+    <div id="dogs" class="layer" style="z-index:20; pointer-events:none"></div>
+    <div id="reveal">
+      <div class="glow"></div>
+      <div class="card">
+        <h2>It's a match!</h2>
+        <div class="name" id="matchName"></div>
+        <div class="k">How it works at Zeus' Rescues</div>
+        <ol>
+          <li>Apply first — before you pick a dog.</li>
+          <li>Staff know every dog from daily play groups, so they help match you.</li>
+          <li>Take your dog home for a one-week trial.</li>
+        </ol>
+        <span class="pill" id="again" role="button" tabindex="0">Play again</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTRO: the Zeus window -->
+  <div id="intro" class="layer">
+    <img class="full" src="a/building.webp" alt="">
+    <div id="inside" role="button" tabindex="0" aria-label="Tap the window">
+      <img class="room" src="a/room.webp" alt="">
+      <div class="peek" style="left:410px; top:330px; height:250px; animation-delay:0s"><img src="a/duford.webp" alt=""></div>
+      <div class="peek" style="left:530px; top:330px; height:205px; animation-delay:.6s"><img src="a/penny.webp" alt=""></div>
+      <div class="peek" style="left:640px; top:345px; height:145px; animation-delay:1.2s"><img src="a/ralphie.webp" alt=""></div>
+    </div>
+    <img id="glass" src="a/glass.webp" alt="">
+    <img class="sign" src="a/logo.webp" alt="Zeus' Rescues">
+  </div>
+
+  <div class="prompt" id="prompt"></div>
+  <div class="tapring" id="ring"></div>
+</div></div>
+
+<script>
+const W = 1434, H = 660;
+const stage = document.getElementById('stage');
+function fit(){ const s = Math.min(innerWidth / W, innerHeight / H); stage.style.transform = `scale(${s})`; }
+addEventListener('resize', fit); fit();
+let RUN = 0; // bumps on restart so old animations stop
+const wait = ms => { const id = RUN; return new Promise((r, j) => setTimeout(() => id === RUN ? r() : j('stale'), ms)); };
+addEventListener('unhandledrejection', e => { if (e.reason === 'stale') e.preventDefault(); });
+const $ = id => document.getElementById(id);
+
+/* ---------- preload ---------- */
+const files = ['splash_sheet','building','glass','room','sky','grass','duford','penny','ralphie','ballpup','nap','kid','pals','house','apt','logo'];
+Promise.all(files.map(f => new Promise(res => { const i = new Image(); i.onload = i.onerror = res; i.src = `a/${f}.webp`; })))
+  .then(() => document.fonts.ready).then(() => {
+    $('loading').style.opacity = 0; setTimeout(() => $('loading').remove(), 500);
+    playSplash();
+  });
+const SPL = {"n": 42, "cols": 8, "w": 376, "h": 528, "d": [80, 50, 40, 40, 40, 40, 40, 50, 40, 40, 40, 40, 40, 50, 40, 40, 40, 40, 40, 50, 40, 40, 40, 40, 40, 50, 40, 40, 40, 40, 40, 50, 40, 40, 40, 40, 40, 50, 40, 40, 40, 1210]};
+function playSplash(){
+  const cv = $('splashCanvas'), cx = cv.getContext('2d'), sheet = new Image();
+  sheet.onload = () => {
+    let i = 0;
+    const draw = () => {
+      cx.clearRect(0, 0, SPL.w, SPL.h);
+      cx.drawImage(sheet, (i % SPL.cols) * SPL.w, Math.floor(i / SPL.cols) * SPL.h, SPL.w, SPL.h, 0, 0, SPL.w, SPL.h);
+      if (i < SPL.n - 1) { setTimeout(draw, SPL.d[i]); i++; }
+      else $('splash').classList.add('ready');
+    };
+    draw();
+  };
+  sheet.src = 'a/splash_sheet.webp';
+}
+$('splash').onclick = () => {
+  const sp = $('splash'); if (!sp.classList.contains('ready')) return;
+  sp.classList.add('hide'); setTimeout(() => sp.style.display = 'none', 700);
+  try { const el = document.documentElement; if (matchMedia('(max-width:900px)').matches && el.requestFullscreen) el.requestFullscreen().then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(()=>{})).catch(()=>{}); } catch(e){}
+  startIntro();
+};
+
+/* ---------- helpers ---------- */
+const promptEl = $('prompt');
+async function say(main, sub=''){ promptEl.classList.add('hide'); await wait(350); promptEl.innerHTML = main + (sub ? `<small>${sub}</small>` : ''); promptEl.classList.remove('hide'); }
+let ringT; function ringLater(x,y,ms){ clearTimeout(ringT); ringT = setTimeout(()=>ring(x,y), ms); }
+function ring(x, y){ const r = $('ring'); r.style.left = x+'px'; r.style.top = y+'px'; r.classList.add('on'); }
+function noRing(){ clearTimeout(ringT); $('ring').classList.remove('on'); }
+
+const HEART = '<svg viewBox="0 0 34 30"><path d="M17 29 C6 20 1 14 2 8 C3 2 11 0 17 7 C23 0 31 2 32 8 C33 14 28 20 17 29Z" fill="#e8706f" stroke="#2b2118" stroke-width="2.5"/></svg>';
+function hearts(x, y, n=7){
+  for (let i=0;i<n;i++){
+    const h = document.createElement('div'); h.className = 'heart'; h.innerHTML = HEART;
+    h.style.left = (x-17)+'px'; h.style.top = (y-15)+'px';
+    h.style.setProperty('--dx', (Math.random()*180-90)+'px'); h.style.setProperty('--dy', (-80-Math.random()*120)+'px');
+    h.style.setProperty('--r', (Math.random()*60-30)+'deg'); h.style.animationDelay = (i*60)+'ms';
+    stage.appendChild(h); setTimeout(() => h.remove(), 1700 + i*60);
+  }
+}
+function bubble(x, y, text, ms=2400){
+  const b = document.createElement('div'); b.className = 'bubble'; b.textContent = text;
+  b.style.left = x+'px'; b.style.top = (y-56)+'px'; stage.appendChild(b);
+  setTimeout(() => { b.classList.add('out'); setTimeout(() => b.remove(), 320); }, ms);
+}
+
+/* ---------- dogs ---------- */
+// The three dogs from the Figma file. Personalities are placeholders for the game, not Zeus records.
+const DOGS = {
+  duford:  { name:'Duford',  h:300, home:230, hello:"I'm Duford! Big, goofy, love a yard." },
+  penny:   { name:'Penny',   h:238, home:450, hello:"Penny here. I sniff EVERYTHING." },
+  ralphie: { name:'Ralphie', h:168, home:640, hello:"Ralphie. Small. Fluffy. Nap expert." },
+};
+const state = {};
+function makeDogs(){
+  $('dogs').innerHTML = '';
+  for (const id in DOGS){
+    const d = DOGS[id];
+    const el = document.createElement('div'); el.className = 'dog'; el.dataset.id = id;
+    el.innerHTML = `<div class="shadow"></div><div class="bob"><div class="flip"><img src="a/${id}.webp" alt="${d.name}" style="height:${d.h}px"></div></div>`;
+    $('dogs').appendChild(el);
+    state[id] = { el, score:0, out:false, x:0 };
+    requestAnimationFrame(() => { el.style.left = (d.home - el.offsetWidth/2) + 'px'; });
+    el.addEventListener('click', () => poke(id));
+  }
+}
+function setDog(id, {x, y, k, instant}={}){
+  const s = state[id], el = s.el;
+  if (x !== undefined) s.x = x;
+  if (instant) el.style.transition = 'none';
+  el.style.setProperty('--x', s.x+'px');
+  if (y !== undefined) el.style.setProperty('--y', y+'px');
+  if (k !== undefined) el.style.setProperty('--k', k);
+  if (instant) { el.offsetWidth; el.style.transition = ''; }
+}
+function depth(id){ // closer to you = lower + bigger
+  const sc = Math.max(-3, Math.min(5, state[id].score));
+  setDog(id, { y: sc*9, k: 1 + sc*0.045 });
+  state[id].el.classList.toggle('dim', sc < 0);
+}
+function headPos(id){
+  const el = state[id].el, r = el.getBoundingClientRect(), sr = stage.getBoundingClientRect(), s = sr.width / W;
+  return { x: (r.left + r.width/2 - sr.left)/s, y: (r.top - sr.top)/s };
+}
+function jump(id){ const el = state[id].el; el.classList.remove('jump'); el.offsetWidth; el.classList.add('jump'); setTimeout(()=>el.classList.remove('jump'), 650); }
+let poking = false;
+function poke(id){
+  if (state[id].out || poking) return; poking = true; setTimeout(()=>poking=false, 700);
+  jump(id); const p = headPos(id); bubble(p.x, p.y, DOGS[id].hello, 2000);
+}
+async function runTo(id, x, ms=1100){
+  const s = state[id]; s.el.classList.toggle('left', x < s.x); s.el.classList.add('hopping');
+  s.el.style.transitionDuration = ms+'ms'; setDog(id, { x }); await wait(ms);
+  s.el.classList.remove('hopping'); s.el.style.transitionDuration = '';
+}
+async function leave(id, line){
+  const s = state[id]; s.out = true;
+  const p = headPos(id); if (line) bubble(p.x, p.y, line, 1800);
+  s.el.classList.add('sad'); await wait(1300); s.el.classList.remove('sad');
+  runTo(id, s.x - 900, 1900); setTimeout(() => s.el.classList.add('gone'), 1300);
+}
+
+/* ---------- intro ---------- */
+function startIntro(){
+  say("Psst… someone's at the window.", "Tap the window");
+  ringLater(510, 340, 1200);
+  const go = async () => {
+    $('inside').onclick = null; noRing();
+    $('intro').classList.add('knock'); await wait(500);
+    promptEl.classList.add('hide');
+    $('intro').classList.add('zoom'); await wait(700);
+    $('yard').classList.add('on'); await wait(500);
+    $('intro').style.display = 'none';
+    startYard();
+  };
+  $('inside').onclick = go;
+}
+
+/* ---------- yard ---------- */
+async function startYard(){
+  makeDogs(); await wait(50);
+  const ids = Object.keys(DOGS);
+  ids.forEach(id => setDog(id, { x: 1100, y: 0, k: 1, instant:true }));
+  for (const [i,id] of ids.entries()){ setTimeout(() => runTo(id, 0, 1500), i*260); }
+  await wait(2200);
+  jump('penny'); const p = headPos('penny'); bubble(p.x, p.y, "Hi! We're looking for our person.", 2600);
+  await wait(1400);
+  round1();
+}
+
+const Items = $('items');
+function addItem({cls, src, x, bottom, w, label, extra=''}){
+  const el = document.createElement('div'); el.className = `item enter ${cls}`; el.tabIndex = 0; el.setAttribute('role','button');
+  el.style.left = x+'px'; el.style.bottom = bottom+'px'; el.style.width = w+'px';
+  el.innerHTML = `<img src="a/${src}.webp" alt="${label||''}">${extra}<div class="check"><svg viewBox="0 0 26 20"><path d="M2 10 L10 17 L24 2" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>${label?`<div class="label">${label}</div>`:''}`;
+  Items.appendChild(el); setTimeout(() => el.classList.remove('enter'), 800); return el;
+}
+function center(el){ const r = el.getBoundingClientRect(), sr = stage.getBoundingClientRect(), s = sr.width/W; return { x:(r.left+r.width/2-sr.left)/s, y:(r.top+r.height/2-sr.top)/s, top:(r.top-sr.top)/s }; }
+async function clearItems(){ [...Items.children].forEach(c => c.classList.add('fade')); await wait(600); Items.innerHTML = ''; }
+
+// apply a choice: score changes + what each dog says
+async function react(effects){
+  const order = Object.entries(effects).filter(([id]) => !state[id].out).sort((a,b) => b[1][0]-a[1][0]);
+  for (const [id, [delta, line]] of order){
+    state[id].score += delta; depth(id);
+    if (delta > 0){ jump(id); setTimeout(()=>{ const p=headPos(id); hearts(p.x, p.y+40, delta*2); }, 250); }
+    if (line){ setTimeout(()=>{ const p=headPos(id); bubble(p.x, p.y, line, 2300); }, 300); }
+    await wait(900);
+  }
+  await wait(1500);
+  // a dog walks away when it's clearly not a fit — but someone always stays
+  const left = Object.keys(state).filter(id => !state[id].out);
+  const best = Math.max(...left.map(id => state[id].score));
+  for (const id of left){ if (state[id].score <= -2 && state[id].score < best){ await leave(id, "Maybe not me… bye!"); await wait(400); } }
+}
+
+/* Round 1 — a Saturday: tap the nap or the ball game */
+async function round1(){
+  await say("What does your perfect Saturday look like?", "Tap the one that's you");
+  const nap = addItem({ cls:'nap', src:'nap', x:790, bottom:180, w:300, label:'Lazy nap',
+    extra:'<span class="zzz" style="left:60px;top:-10px">z</span><span class="zzz" style="left:85px;top:-25px;animation-delay:1s">Z</span><span class="zzz" style="left:110px;top:-40px;animation-delay:2s">z</span>' });
+  const ball = addItem({ cls:'ballpup', src:'ballpup', x:1150, bottom:160, w:230, label:'Ball all day' });
+  ringLater(970, 330, 1600);
+  const pick = await choose([nap, ball]);
+  noRing();
+  const c = center(pick); hearts(c.x, c.y, 9);
+  pick.classList.add('chosen'); [nap, ball].filter(e => e !== pick).forEach(e => e.classList.add('fade'));
+  if (pick === nap) await react({ ralphie:[3,"Naps? I'm a pro."], duford:[-1,"Hmm… I'd rather run."], penny:[-1,"Wait… no walks?"] });
+  else await react({ penny:[2,"Ball! Ball! BALL!"], duford:[2,"Let's go!!"], ralphie:[-1,"…I'll watch."] });
+  await clearItems(); round2();
+}
+function choose(els){ return new Promise(res => els.forEach(el => { const f = () => { els.forEach(e => e.onclick = null); res(el); }; el.onclick = f; el.onkeydown = e => (e.key==='Enter'||e.key===' ') && f(); })); }
+
+/* Round 2 — who's coming home with us: tap everyone, then the sign */
+async function round2(){
+  await say("Who's coming home with us?", "Tap everyone who lives with you — then tap the sign");
+  const kid = addItem({ cls:'kid', src:'kid', x:770, bottom:270, w:320, label:'Little kids' });
+  const pals = addItem({ cls:'pals', src:'pals', x:1130, bottom:270, w:250, label:'Another dog' });
+  const sign = document.createElement('div'); sign.className = 'crew item enter'; sign.setAttribute('role','button'); sign.tabIndex = 0;
+  sign.style.right = '70px'; sign.style.bottom = '30px';
+  sign.innerHTML = `<div class="post"></div><div class="board" id="crewText">It's just me →</div>`;
+  Items.appendChild(sign);
+  ringLater(950, 300, 1600);
+  for (const el of [kid, pals]){
+    el.onclick = () => {
+      noRing(); el.classList.toggle('on');
+      const c = center(el); if (el.classList.contains('on')) hearts(c.x, c.top+20, 4);
+      el.style.transform = 'scale(1.08)'; setTimeout(() => el.style.transform = '', 250);
+      $('crewText').textContent = (kid.classList.contains('on') || pals.classList.contains('on')) ? "That's my crew →" : "It's just me →";
+      // the dogs notice: a quick hop from whoever likes this
+      const fan = el === kid ? 'duford' : 'ralphie';
+      if (el.classList.contains('on') && !state[fan].out) jump(fan);
+    };
+  }
+  await new Promise(res => sign.onclick = res);
+  noRing(); sign.classList.add('chosen');
+  const hasKid = kid.classList.contains('on'), hasDog = pals.classList.contains('on');
+  [kid, pals].forEach(e => { if (!e.classList.contains('on')) e.classList.add('fade'); });
+  const fx = { duford:[0,''], penny:[0,''], ralphie:[0,''] };
+  const add = (id, d, line) => { fx[id][0] += d; if (line) fx[id][1] = line; };
+  if (hasKid){ add('duford', 2, "Kids! I LOVE kids."); add('penny', 1, "Little people drop snacks…"); add('ralphie', -2, "Little hands scare me a bit."); }
+  if (hasDog){ add('duford', 1, hasKid ? "Kids AND a buddy?!" : "A buddy to wrestle!"); add('ralphie', 1, hasKid ? '' : "A friend! Nice."); add('penny', -2, "I like being the only dog."); }
+  if (!hasKid && !hasDog){ add('ralphie', 1, "Just you and me? Cozy."); add('penny', 1, "All your attention for me!"); }
+  await react(fx);
+  await clearItems(); round3();
+}
+
+/* Round 3 — where will we live: tap the building */
+async function round3(){
+  await say("Where will we live?", "Tap your home");
+  const apt = addItem({ cls:'apt', src:'apt', x:880, bottom:210, w:170, label:'Apartment' });
+  const house = addItem({ cls:'house', src:'house', x:1140, bottom:220, w:250, label:'House with a yard' });
+  ringLater(965, 330, 1600);
+  const pick = await choose([apt, house]); noRing();
+  const c = center(pick); hearts(c.x, c.y, 8); pick.classList.add('chosen');
+  [apt, house].filter(e => e !== pick).forEach(e => e.classList.add('fade'));
+  if (pick === apt) await react({ penny:[1,"Stairs are fine by me!"], ralphie:[1,"Small place, small me."], duford:[-2,"No yard…?"] });
+  else await react({ duford:[2,"A YARD!!"], penny:[1,"So many smells out there."], ralphie:[0,""] });
+  await wait(300); reveal();
+}
+
+/* Reveal — the best fit runs up to you */
+async function reveal(){
+  await clearItems();
+  const left = Object.keys(state).filter(id => !state[id].out);
+  const tie = { penny:0, duford:1, ralphie:2 };
+  left.sort((a,b) => state[b].score - state[a].score || tie[a] - tie[b]);
+  const win = left[0];
+  await say("Somebody picked you…");
+  for (const id of left.slice(1)){ const p = headPos(id); bubble(p.x, p.y, "Go on, it's your turn!", 1600); }
+  await wait(1200);
+  for (const id of left.slice(1)){ state[id].out = true; runTo(id, state[id].x - 900, 1900); setTimeout(()=>state[id].el.classList.add('gone'), 1300); }
+  await wait(600);
+  const el = state[win].el; el.classList.remove('dim');
+  const homeLeft = parseFloat(el.style.left) + el.offsetWidth/2;
+  await runTo(win, 470 - homeLeft, 1300);
+  setDog(win, { y: 20, k: 1.45 }); el.classList.remove('left');
+  await wait(900);
+  promptEl.classList.add('hide');
+  jump(win); const p = headPos(win); hearts(p.x, p.y+60, 14);
+  $('matchName').textContent = `${DOGS[win].name} thinks you're the one.`;
+  $('reveal').classList.add('on');
+  setTimeout(() => { const q = headPos(win); bubble(q.x, q.y, "Take me home?", 3200); }, 900);
+}
+function restart(){
+  RUN++; noRing();
+  document.querySelectorAll('.bubble, .heart').forEach(n => n.remove());
+  $('reveal').classList.remove('on'); Items.innerHTML = ''; $('dogs').innerHTML = '';
+  for (const id in state) delete state[id];
+  $('yard').classList.remove('on');
+  const intro = $('intro'); intro.style.transition = 'none'; intro.classList.remove('zoom','knock'); intro.style.display = '';
+  intro.offsetWidth; intro.style.transition = '';
+  startIntro();
+}
+$('again').onclick = restart;
+$('home').onclick = restart;
+document.querySelector('.logo').onclick = restart;
+</script>
+</body>
+</html>
